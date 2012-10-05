@@ -1,0 +1,51 @@
+== Custom Form Builder
+
+The idea is to create a custom form builder, which always adds a label to
+a field. Then you don't have to add the label specifically.
+This is taken from Chad Fowler, Rails Recipes, 2012. (Chapter 32)
+
+The interesting bit is the following metaprogramming class, which is 
+homed in the app/helpers directory.
+
+class LabeledFormBuilder < ActionView::Helpers::FormBuilder
+  (field_helpers -
+    %w(check_box radio_button hidden_field label)).each do |selector|
+      src = <<-END_SRC
+        def #{selector}(field, options = {})
+          @template.content_tag("p", label(field) + ": " + super,
+           :class => @template.cycle("", "alt-row"))
+        end
+      END_SRC
+      class_eval src, __FILE__, __LINE__
+  end
+end
+
+and then do something like
+.alt-row { background: #fab444; }
+
+The inner loop generates some code, which is then class_eval'd to incorporate
+it into the FormBuilder as new code. That is, to create new definitions of
+things like check_box and label.
+
+A number of questions arise about this:
+
+1) What is the dash symbol doing in the line with field_helpers?
+2) What do __FILE__ and __LINE__ do?
+3) what is the super token doing here?
+
+One answer to the first question:
+The dash removes from the array. But, if we are defining these, why would
+we want them removed from 'field_helpers'?
+
+__FILE__ is current relative path
+__LINE__ is the current line
+These last 2 items are added to be able to provide correct file name and
+correct line number.
+
+Fowler also notes that you can do an initializer, config/initializers/
+custom_form_builder.rb:
+
+require 'labeled_form_builder'
+ActionView::Base.default_form_builder = LabeledFormBuilder
+
+to always get it. All form_for calls will then get this one.
